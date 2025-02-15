@@ -1,0 +1,109 @@
+####### PATHS
+PKG_LIST_PATH="$HOME/.config/spkg/pkglist/"
+
+PKG_BIN="$HOME/.config/spkg/bin/"
+
+PKG_BUILD="$HOME/.config/spkg/build"
+
+####### CLONE PACKAGE
+clone_pkg() {
+	URL="$1"
+	OUT="$2"
+
+	if ! git clone "$URL" "$OUT" -q >"/dev/null" 2>&1; then
+		printf "\x1b[31;1m==>\x1b[0m Failed to clone package\n" >&2
+		printf "\x1b[31;1m==>\x1b[0m Is the URL incorrect?\n" >&2
+		exit 1
+	fi
+
+}
+
+####### INSTALL PACKAGE
+sh_install_pkg() {
+
+	URL="$1"
+	OUTDIR="$PKG_BUILD"
+
+	printf "\x1b[36;1m==> \x1b[0mCloning package...\n"
+	rm -rf "$OUTDIR"
+	clone_pkg "$URL" "$OUTDIR"
+
+	if ! find "$OUTDIR" -maxdepth 1 -type f -name ".spkg.sh" >"/dev/null" 2>&1; then
+		printf "\x1b[31;1m==>\x1b[0m Failed to find .spkg script file\n" >&2
+		printf "\x1b[31;1m==>\x1b[0m Please report this issue to repository creator\n" >&2
+		exit 1
+	fi
+
+	# source
+	source "$OUTDIR/.spkg.sh"
+
+	# install prompt
+	printf "\x1b[32;1mPackage Info:\x1b[0m\n"
+	printf "package name: %s\n" "$PKG_NAME"
+	printf "license: %s\n" "$LICENSE"
+	printf "authors: %s\n" "$AUTHORS"
+	printf "version: %s\n" "$VERSION"
+	printf "description: %s\n" "$DESCRIPTON"
+
+	printf "Install package?(y/n) "
+	read isok </dev/tty
+
+	# cancel
+	if [ "$isok" != "y" ]; then
+		printf "\x1b[31;1m==>\x1b[0m Install cancelled" >&2
+		exit 1
+	fi
+
+	# install
+
+	printf "\x1b[36;1m==> \x1b[0mBuilding package...\n"
+	cd "$OUTDIR"
+	if ! BUILD; then
+		printf "\x1b[31;1m==>\x1b[0m Failed to Build package\n" >&2
+		printf "\x1b[31;1m==>\x1b[0m Please report this issue to repository creator\n" >&2
+		exit 1
+	fi
+
+	printf "\x1b[36;1m==> \x1b[0mInstalling package...\n"
+
+	if ! INSTALL; then
+		printf "\x1b[31;1m==>\x1b[0m Failed to Install package\n" >&2
+		printf "\x1b[31;1m==>\x1b[0m Please report this issue to repository creator\n" >&2
+		exit 1
+	fi
+
+	mkdir -p "$PKG_BIN"
+	if ! mv "$PKG_BUILD/$PKG_NAME" "$PKG_BIN" >"/dev/null" 2>&1; then
+		printf "\x1b[31;1m==>\x1b[0m Failed to Install package\n" >&2
+		printf "\x1b[31;1m==>\x1b[0m Please report this issue to repository creator\n" >&2
+		exit 1
+	fi
+
+	rm -rf "$OUTDIR"
+
+	printf "\x1b[33;1m==> \x1b[0mInstallation complete!\n"
+
+	RCS=("$HOME/.zshrc" "$HOME/.bashrc")
+
+	for n in "${RCS[@]}"; do
+		content=$(cat "$n")
+		if ! echo "$content" | grep -q "export PATH=\$PATH:$HOME/.config/spkg/"; then
+			echo "export PATH=\$PATH:$PKG_BIN" >>"$n"
+		fi
+	done
+
+}
+
+####### MAIN
+ARG_1="$1"
+
+case $ARG_1 in
+
+# install
+install)
+	if [ "$2" != "" ]; then
+		sh_install_pkg "$2"
+	fi
+	;;
+
+esac
