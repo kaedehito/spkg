@@ -50,7 +50,7 @@ sh_install_pkg() {
 
 	# cancel
 	if [ "$isok" != "y" ]; then
-		printf "\x1b[31;1m==>\x1b[0m Install cancelled" >&2
+		printf "\x1b[31;1m==>\x1b[0m Install cancelled\n" >&2
 		exit 1
 	fi
 
